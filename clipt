@@ -1,0 +1,118 @@
+#!/usr/bin/env python
+
+'''
+Clipt - tray tool to manipulate text on the clipboard
+    Copyright (C) 2003 Dan Jones
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see [http://www.gnu.org/licenses/].
+'''
+
+import wx.adv
+import wx
+import pyperclip
+import urllib.parse
+import os
+import sys
+import re
+
+TRAY_TOOLTIP = 'clipt - clipboard tray tool'
+TRAY_ICON = os.path.join(sys.path[0], 'clipt.png')
+
+
+def create_menu_item(menu, label, func):
+    item = wx.MenuItem(menu, -1, label)
+    menu.Bind(wx.EVT_MENU, func, id=item.GetId())
+    menu.Append(item)
+    return item
+
+
+class TaskBarIcon(wx.adv.TaskBarIcon):
+    def __init__(self, frame):
+        self.frame = frame
+        super(TaskBarIcon, self).__init__()
+        self.set_icon(TRAY_ICON)
+        self.Bind(wx.adv.EVT_TASKBAR_LEFT_DOWN, self.on_left_down)
+
+    def CreatePopupMenu(self):
+        menu = wx.Menu()
+        create_menu_item(menu, 'Upper Case', self.on_upper)
+        create_menu_item(menu, 'Lower Case', self.on_upper)
+        create_menu_item(menu, 'Sentence Case', self.on_sentence)
+        create_menu_item(menu, 'Title Case', self.on_title)
+        menu.AppendSeparator()
+        create_menu_item(menu, 'Percent Encode', self.on_pencode)
+        create_menu_item(menu, 'Percent Decode', self.on_pdecode)
+        create_menu_item(menu, 'YouTube', self.on_youtube)
+        menu.AppendSeparator()
+        create_menu_item(menu, 'Exit', self.on_exit)
+        return menu
+
+    def set_icon(self, path):
+        icon = wx.Icon(path)
+        self.SetIcon(icon, TRAY_TOOLTIP)
+
+    def on_left_down(self, event):
+        print('Tray icon was left-clicked.')
+
+    def on_upper(self, event):
+        text_in = pyperclip.paste()
+        pyperclip.copy(text_in.upper())
+
+    def on_lower(self, event):
+        text_in = pyperclip.paste()
+        pyperclip.copy(text_in.lower())
+
+    def on_sentence(self, event):
+        text_in = pyperclip.paste()
+        pyperclip.copy(text_in.capitalize())
+
+    def on_title(self, event):
+        text_in = pyperclip.paste()
+        pyperclip.copy(text_in.titlecase())
+
+    def on_pencode(self, event):
+        text_in = pyperclip.paste()
+        pyperclip.copy(urllib.parse.quote(text_in))
+
+    def on_pdecode(self, event):
+        text_in = pyperclip.paste()
+        pyperclip.copy(urllib.parse.unquote(text_in))
+
+    def on_youtube(self, event):
+        group = re.search(r'q=(?P<url>http.+)&v=', pyperclip.paste())
+        if group is not None:
+            pyperclip.copy(urllib.parse.unquote(group.group('url')))
+        else:
+            pyperclip.copy('Not a YouTube url')
+
+    def on_exit(self, event):
+        wx.CallAfter(self.Destroy)
+        self.frame.Close()
+
+
+class App(wx.App):
+    def OnInit(self):
+        frame = wx.Frame(None)
+        self.SetTopWindow(frame)
+        TaskBarIcon(frame)
+        return True
+
+
+def main():
+    app = App(False)
+    app.MainLoop()
+
+
+if __name__ == '__main__':
+    main()
